@@ -1,0 +1,21 @@
+//Register
+Route::post("register", [AuthController::class, "register"]);
+
+//Login
+Route::post("login", [AuthController::class, "login"]);
+
+//Protected Routes
+
+Route::group([
+    "middleware" => ['auth:sanctum']
+], function () {
+    //--Logout
+    Route::get("logout", [AuthController::class, "logout"]);
+  
+    // GoogleAuthenticator - 2 factor
+    Route::prefix('google-auth')->group(function () {
+        Route::get('/generate-secret', [GoogleAuthenticatorController::class, 'generateSecret']);
+        // Route::get('/generate-qr-code', [GoogleAuthenticatorController::class, 'generateQRCode']);
+        Route::post('/verify-otp', [GoogleAuthenticatorController::class, 'verifyOTP']);
+    });
+});
