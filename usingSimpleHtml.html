@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2FA Setup</title>
+    <!-- <link rel="stylesheet" href="styles.css"> -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 20px;
+        }
+
+        #container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        h2 {
+            font-size: 24px;
+        }
+
+        #qr-code-container {
+            margin: 20px 0;
+        }
+
+        #otp-form {
+            margin-top: 20px;
+        }
+
+        #otp {
+            padding: 8px;
+            font-size: 16px;
+            width: 100px;
+            text-align: center;
+        }
+
+        button {
+            padding: 8px 16px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <div id="container">
+        <h2>Google Authenticator Setup</h2>
+
+        <!-- QR Code and Instructions -->
+        <div id="qr-code-container">
+            <h3>Scan this QR code with your Google Authenticator app:</h3>
+            <!-- <img id="qr-code" src="" alt="QR Code for Google Authenticator"> -->
+            <canvas id="qr-code"></canvas>
+        </div>
+
+        <!-- OTP Verification Form -->
+        <form id="otp-form">
+            <label for="otp">Enter OTP:</label>
+            <input type="text" id="otp" name="otp" maxlength="6" required>
+            <button type="submit">Verify OTP</button>
+        </form>
+
+        <div id="result"></div>
+    </div>
+
+    <!-- <script src="script.js"></script>  -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            const apiUrl = "http://127.0.0.1:8000/api"; // Adjust to your backend API URL
+            let secret = ""; // This will store the user's 2FA secret
+            let token = "134|1UzQDD9A06bglFRFwfga6Erj2cDoJHFKjmmyYZ5J433df7c0";
+
+            // Step 1: Generate the 2FA secret and QR code when the page loads
+            $.ajax({
+                url: `${apiUrl}/google-auth/generate-secret`,
+                method: "GET",
+                headers: {
+                    "Authorization": `Bearer ${token}` // Sending the auth token
+                },
+                success: function (response) {
+                    // Ensure the response has the required properties
+                    if (response && response.secret && response.otpAuthUrl) {
+                        const secret = response.secret; // Save the secret for OTP verification later
+
+                        // Optional: You could store the secret in localStorage or a hidden field
+                        // localStorage.setItem('twoFactorSecret', secret); 
+
+                        // Generate the QR code using the 'qrcode.js' library
+                        QRCode.toCanvas(document.getElementById('qr-code'), response.otpAuthUrl,
+                            function (error) {
+                                if (error) {
+                                    console.error('Error generating QR code:', error);
+                                } else {
+                                    console.log('QR code generated successfully!');
+                                }
+                            });
+
+                        // Optional: Log the secret and otpAuthUrl to check
+                        console.log('2FA Secret:', secret);
+                        console.log('QR Code URL:', response.otpAuthUrl);
+                    } else {
+                        console.error("Invalid response from server:", response);
+                    }
+                },
+                error: function (error) {
+                    console.error("Error generating 2FA secret:", error);
+                }
+            });
+
+            // Step 2: Handle OTP form submission
+            $("#otp-form").submit(function (e) {
+                e.preventDefault();
+
+                // Get the OTP entered by the user
+                const otp = $("#otp").val();
+
+                // Step 3: Verify the OTP with the backend
+                $.ajax({
+                    url: `${apiUrl}/google-auth/verify-otp`,
+                    method: "POST",
+                    data: {
+                        otp: otp,
+                        secret: secret // Pass the secret key for verification
+                    },
+                    headers: {
+                        "Authorization": `Bearer ${token}` // Include user token
+                    },
+                    success: function (response) {
+                        if (response.isValid) {
+                            $("#result").text("OTP Verified Successfully!");
+                            $("#result").css("color", "green");
+                        } else {
+                            $("#result").text("Invalid OTP. Please try again.");
+                            $("#result").css("color", "red");
+                        }
+                    },
+                    error: function (error) {
+                        console.error("Error verifying OTP:", error);
+                        $("#result").text("Error verifying OTP.");
+                        $("#result").css("color", "red");
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>
